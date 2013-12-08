@@ -207,5 +207,5 @@ public class SentenceTranslate {
 	 * @param args
 	 */
 	public static void main(String[] args) throws Exception {
-		SentenceTranslate.improveSentenceTranslationBySimilartyAssessment(SentenceTranslate.executeByMicrosoftTranslator("В воскресенье, 8 декабря, власти Южной Кореи объявили о расширении своей зоны противовоздушной обороны, включив в него свои южные острова."));
+		SentenceTranslate.improveSentenceTranslationBySimilartyAssessment(SentenceTranslate.executeByMicrosoftTranslator("Р’ РІРѕСЃРєСЂРµСЃРµРЅСЊРµ, 8 РґРµРєР°Р±СЂСЏ, РІР»Р°СЃС‚Рё Р®Р¶РЅРѕР№ РљРѕСЂРµРё РѕР±СЉСЏРІРёР»Рё Рѕ СЂР°СЃС€РёСЂРµРЅРёРё СЃРІРѕРµР№ Р·РѕРЅС‹ РїСЂРѕС‚РёРІРѕРІРѕР·РґСѓС€РЅРѕР№ РѕР±РѕСЂРѕРЅС‹, РІРєР»СЋС‡РёРІ РІ РЅРµРіРѕ СЃРІРѕРё СЋР¶РЅС‹Рµ РѕСЃС‚СЂРѕРІР°."));
 	}}
