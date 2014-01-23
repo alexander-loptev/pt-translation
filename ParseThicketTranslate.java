@@ -17,7 +17,6 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
-import org.apache.commons.lang.StringUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.ProcessingInstruction;
@@ -31,8 +30,6 @@ import opennlp.tools.similarity.apps.HitBase;
 import opennlp.tools.textsimilarity.ParseTreeChunk;
 import opennlp.tools.textsimilarity.ParseTreeChunkListScorer;
 
-import com.memetix.mst.language.Language;
-import com.memetix.mst.translate.Translate;
 
 import edu.stanford.nlp.ling.Sentence;
 import edu.stanford.nlp.ling.TaggedWord;
@@ -56,8 +53,9 @@ public class ParseThicketTranslate {
 	private static int considerableSearchResultsCount = 5;
 
 	// minimal and maximal bounds for phrase length for its meaningless testing
-	private static int minimumWordsInPhraseForImprovement = 5;
+	private static int minimumWordsInPhraseForImprovement = 3;
 	private static int maximumWordsInPhraseForImprovement = Integer.MAX_VALUE;
+	private static int maximumWordsInPhraseForStopDownTopTraversal = 5;
 	private static double minimumRelativeWordsInPhraseForImprovement = 0.0;
 	private static double maximumRelativeWordsInPhraseForImprovement = 1.0;
 
@@ -271,8 +269,11 @@ public class ParseThicketTranslate {
 	}
 
 	public static List<Translator> getAvailableTranslators() {
-		return Arrays.asList(YandexTranslator.getInstance(),
-				MicrosoftTranslator.getInstance());
+		return Arrays.asList(
+			GoogleTranslator.getInstance(),
+			YandexTranslator.getInstance(),
+			MicrosoftTranslator.getInstance()
+		);
 	}
 
 	/**
@@ -314,11 +315,11 @@ public class ParseThicketTranslate {
 			translatedTextElement.appendChild(doc
 					.createTextNode(translatedText));
 			textTranslationElement.appendChild(translatedTextElement);
-
+			List<String> shortMeaninglessPhrases = new LinkedList<String>();
 			for (Tree tree : pt.getSentences()) {
 				String sentenceTranslation = Sentence
 						.listToString(tree.yield());
-				
+				shortMeaninglessPhrases.clear();
 				Element sentenceElement = doc.createElement("sentence");
 				translationElement.appendChild(sentenceElement);
 
@@ -333,13 +334,28 @@ public class ParseThicketTranslate {
 				sentenceElement.appendChild(sentencePennElement);
 				
 				List<Tree> phrasesForTesting = formPhrasesForMeaningfulnessTesting(sentenceTranslation);
+				System.out.println(phrasesForTesting);
 				for (Tree phraseTree : phrasesForTesting) {
 					String phrase = Sentence.listToString(phraseTree.yield());
+					boolean containsMeaningless = false;
+					for (String meaninglessPhrase: shortMeaninglessPhrases) {
+						if (phrase.contains(meaninglessPhrase)) {
+							containsMeaningless = true;
+							break;
+						}
+					}
+					if (containsMeaningless) {
+						continue;
+					}
 					Map<String, Double> suggestions = suggestPhraseImprovedTranslations(phrase);
 					Element phraseElement = doc.createElement("phrase");
 					sentenceElement.appendChild(phraseElement);
 					double randomSuggestionScore = suggestions.values().iterator().next();
-					phraseElement.setAttribute("meaningful", (randomSuggestionScore > meaningfulnessRelativeSimilarityThreshold) ? "1" : "0");
+					boolean meaningful = randomSuggestionScore > meaningfulnessRelativeSimilarityThreshold;
+					phraseElement.setAttribute("meaningful", meaningful ? "1" : "0");
+					if (!meaningful && wordCount(phraseTree) <= maximumWordsInPhraseForStopDownTopTraversal) {
+						shortMeaninglessPhrases.add(phrase);
+					}
 					Element translatedPhraseElement = doc
 							.createElement("translated-phrase");
 					translatedPhraseElement.appendChild(doc
@@ -377,12 +393,18 @@ public class ParseThicketTranslate {
 	 * @param args
 	 */
 	public static void main(String[] args) throws Exception {
-
-		String[] tests = { "Владельцы прав на музыку недовольны, что уже принятые и разрабатываемые в России антипиратские законы не предусматривают жесткой борьбы с музыкальным контрафактом.",
-		"Немного познакомившись, мы с моим новым попутчиком опрокинули по стаканчику.",
-		"Эти типы стали насмехаться над нашими глупыми попытками выйти из положения.",
-		"Главный государственный санитарный врач России Геннадий Онищенко призвал россиян отказаться от суши.",
-		"Последний по порядку, но никак не по важности курс — Алгоритмы и структуры данных для поиска.",
+		System.out.println(assessSimilarityScore("Dog drank the water, the cat ate the meat.", "Dog drank the water, the cat ate the meat."));
+		System.out.println(assessSimilarityScore("Dog drank the water.", "Dog drank the water."));
+		String[] tests = {
+				"Владельцы прав на музыку недовольны, что уже принятые и разрабатываемые в России антипиратские законы не предусматривают жесткой борьбы с музыкальным контрафактом.",
+				"Немного познакомившись, мы с моим новым попутчиком опрокинули по стаканчику.",
+				"Эти типы стали насмехаться над нашими глупыми попытками выйти из положения.",
+				"Главный государственный санитарный врач России Геннадий Онищенко призвал россиян отказаться от суши.",
+				"Последний по порядку, но никак не по важности курс — Алгоритмы и структуры данных для поиска.",
+				"Амнистия коснется тех, кто осужден на срок до пяти лет включительно или подозревается в преступлениях, за которые дают до пяти лет.",
+				"Исключения и связанная с ними раскрутка стека – одна из самых приятных методик.",
+				"Обработка исключений интуитивно понятно согласуется с блочной структурой программы.",
+				"Внешне, обработка исключений представляется очень логичной и естественной."
 		};
 		for (int i = 0; i < tests.length; i++) {
 			ParseThicketTranslate.saveMeaningfulnessTestingResultsAsXML(
